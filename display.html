@@ -31,6 +31,14 @@
       margin: 15px;
       border-radius: 20px;
       animation: fadeIn 0.6s ease-in-out;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .time {
+      font-size: 1.2rem;
+      margin-top: 10px;
     }
 
     @keyframes fadeIn {
@@ -52,7 +60,6 @@
   <h1>For Pick-up:</h1>
   <div id="ticket-list"></div>
 
-  <!-- 🔔 Sound to play on new ticket -->
   <audio id="ding" src="https://www.soundjay.com/button/sounds/button-3.mp3" preload="auto"></audio>
 
   <script type="module">
@@ -95,28 +102,26 @@
 
     onValue(ref(db, 'pickupQueue'), (snapshot) => {
       const data = snapshot.val() || {};
-      const sorted = Object.entries(data).sort((a, b) => b[1].time - a[1].time);
+      const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time); // oldest first
       playDingIfNew(sorted);
       listEl.innerHTML = "";
       sorted.slice(0, 5).forEach(([ticket, info]) => {
         const div = document.createElement("div");
-        const time = formatTime(info.time);
         div.className = "ticket";
-        div.textContent = `${ticket} (${time})`;
+        div.innerHTML = `
+          ${ticket}
+          <span class="time">${formatTime(info.time)}</span>
+        `;
         listEl.appendChild(div);
       });
     });
 
-    // ⛳ Auto-request fullscreen on first click/tap (browsers block autoplay fullscreen)
+    // Fullscreen request on first click
     document.addEventListener("click", () => {
       const elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        elem.requestFullscreen().catch(() => {});
-      } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
-      } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
-      }
+      if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
+      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
     }, { once: true });
   </script>
 </body>
