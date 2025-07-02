@@ -13,32 +13,41 @@
       align-items: center;
       justify-content: flex-start;
       height: 100vh;
-      padding-top: 40px;
+      padding: 20px;
+      box-sizing: border-box;
     }
 
     h1 {
       font-size: 3rem;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
       text-transform: uppercase;
       letter-spacing: 2px;
     }
 
+    #ticket-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+      width: 100%;
+      max-width: 1600px;
+    }
+
     .ticket {
-      font-size: 4rem;
+      font-size: 3.5rem;
       background-color: #111;
       border: 2px solid #00FF88;
-      padding: 20px 40px;
-      margin: 15px;
+      padding: 30px;
       border-radius: 20px;
       animation: fadeIn 0.6s ease-in-out;
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
     }
 
     .time {
-      font-size: 1.2rem;
-      margin-top: 10px;
+      font-size: 1.4rem;
+      margin-top: 15px;
     }
 
     @keyframes fadeIn {
@@ -49,6 +58,12 @@
       to {
         opacity: 1;
         transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 800px) {
+      #ticket-list {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -105,7 +120,7 @@
       const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time); // oldest first
       playDingIfNew(sorted);
       listEl.innerHTML = "";
-      sorted.slice(0, 5).forEach(([ticket, info]) => {
+      sorted.slice(0, 10).forEach(([ticket, info]) => {
         const div = document.createElement("div");
         div.className = "ticket";
         div.innerHTML = `
@@ -116,7 +131,7 @@
       });
     });
 
-    // Fullscreen request on first click
+    // Fullscreen trigger on first tap
     document.addEventListener("click", () => {
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
