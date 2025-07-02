@@ -81,6 +81,7 @@
     }
   </style>
 
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
@@ -124,12 +125,11 @@
     }
 
     function renderTickets(data) {
-      const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
+      const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time); // oldest first
       const currentKeys = sorted.map(([ticket]) => ticket);
-
-      // Determine new tickets
       const newOnes = currentKeys.filter(ticket => !lastTickets.includes(ticket));
 
+      // Play sound if new tickets
       if (newOnes.length > 0 && canPlaySound) {
         ding.currentTime = 0;
         ding.play().catch(() => {});
@@ -152,18 +152,26 @@
       });
     }
 
+    // Live update of tickets
     onValue(ref(db, 'pickupQueue'), (snapshot) => {
       offlineBanner.style.display = "none";
       const data = snapshot.val() || {};
       renderTickets(data);
     });
 
+    // Offline warning
     onValue(ref(db, ".info/connected"), (snap) => {
       offlineBanner.style.display = snap.val() ? "none" : "block";
     });
 
+    // Enable sound and fullscreen on first tap/click
     document.addEventListener("click", () => {
-      canPlaySound = true;
+      if (!canPlaySound) {
+        canPlaySound = true;
+        ding.currentTime = 0;
+        ding.play().catch(() => {});
+      }
+
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
       else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
