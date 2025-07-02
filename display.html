@@ -94,7 +94,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-    import { getDatabase, ref, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDvm5SusJfqnB_HP5_M9cEat6ZuKKT86BY",
@@ -113,6 +113,7 @@
     const offlineBanner = document.getElementById("offline-banner");
 
     let lastTickets = [];
+    let canPlaySound = false;
 
     function formatTime(ms) {
       const d = new Date(ms);
@@ -125,8 +126,9 @@
     function playDingIfNew(currentTickets) {
       const currentKeys = currentTickets.map(([ticket]) => ticket);
       const newOnes = currentKeys.filter(ticket => !lastTickets.includes(ticket));
-      if (newOnes.length > 0) {
-        ding.play();
+      if (newOnes.length > 0 && canPlaySound) {
+        ding.currentTime = 0;
+        ding.play().catch(() => {});
       }
       lastTickets = currentKeys;
     }
@@ -134,33 +136,34 @@
     onValue(ref(db, 'pickupQueue'), (snapshot) => {
       offlineBanner.style.display = "none";
       const data = snapshot.val() || {};
-      const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time); // oldest first
+      const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
       playDingIfNew(sorted);
       listEl.innerHTML = "";
       sorted.slice(0, 10).forEach(([ticket, info]) => {
         const div = document.createElement("div");
         div.className = "ticket";
-        div.innerHTML = `
-          ${ticket}
-          <span class="time">${formatTime(info.time)}</span>
-        `;
+        const timeStr = formatTime(info.time);
+        div.innerHTML = `${ticket}<span class="time">${timeStr}</span>`;
+
+        // Add highlight if new
         if (!lastTickets.includes(ticket)) {
           div.classList.add("highlight");
+          void div.offsetWidth; // force reflow for animation
         }
+
         listEl.appendChild(div);
       });
-    }, {
-      onlyOnce: false
     });
 
-    // Offline detection
+    // Firebase connection check
     const connectedRef = ref(db, ".info/connected");
     onValue(connectedRef, (snap) => {
       offlineBanner.style.display = snap.val() ? "none" : "block";
     });
 
-    // Fullscreen on tap
+    // Allow sound and fullscreen on first user interaction
     document.addEventListener("click", () => {
+      canPlaySound = true;
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
       else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
