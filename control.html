@@ -1,0 +1,70 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pickup Queue Control</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 50px;
+    }
+    input {
+      font-size: 1.5em;
+      padding: 10px;
+      width: 200px;
+      margin-bottom: 10px;
+    }
+    button {
+      font-size: 1.2em;
+      padding: 10px 20px;
+      margin: 5px;
+    }
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
+</head>
+<body>
+  <h2>Control Panel</h2>
+  <input type="text" id="ticketInput" placeholder="Enter ticket number">
+  <br>
+  <button onclick="addTicket()">Add</button>
+  <button onclick="removeTicket()">Remove</button>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
+    import { getDatabase, ref, set, remove } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+
+    
+const firebaseConfig = {
+  apiKey: "AIzaSyDvm5SusJfqnB_HP5_M9cEat6ZuKKT86BY",
+  authDomain: "pickup-queue-b97b5.firebaseapp.com",
+  databaseURL: "https://pickup-queue-b97b5-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "pickup-queue-b97b5",
+  storageBucket: "pickup-queue-b97b5.firebasestorage.app",
+  messagingSenderId: "81695203249",
+  appId: "1:81695203249:web:8888a6f9de815b34566790"
+};
+
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    window.addTicket = function() {
+      const ticket = document.getElementById('ticketInput').value.trim();
+      if (ticket) {
+        set(ref(db, 'pickupQueue/' + ticket), true);
+        document.getElementById('ticketInput').value = '';
+      }
+    }
+
+    window.removeTicket = function() {
+      const ticket = document.getElementById('ticketInput').value.trim();
+      if (ticket) {
+        remove(ref(db, 'pickupQueue/' + ticket));
+        document.getElementById('ticketInput').value = '';
+      }
+    }
+  </script>
+</body>
+</html>
