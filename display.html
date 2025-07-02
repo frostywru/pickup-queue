@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Pickup Display</title>
+  <title>Pickup Queue Display</title>
   <style>
     body {
       margin: 0;
@@ -60,7 +60,7 @@
     }
 
     .highlight {
-      animation: pop 1.5s ease-in-out;
+      animation: pop 1s ease-in-out;
     }
 
     @keyframes pop {
@@ -123,45 +123,45 @@
       return `${h}:${m} ${ampm}`;
     }
 
-    function playDingIfNew(currentTickets) {
-      const currentKeys = currentTickets.map(([ticket]) => ticket);
+    function renderTickets(data) {
+      const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
+      const currentKeys = sorted.map(([ticket]) => ticket);
+
+      // Determine new tickets
       const newOnes = currentKeys.filter(ticket => !lastTickets.includes(ticket));
+
       if (newOnes.length > 0 && canPlaySound) {
         ding.currentTime = 0;
         ding.play().catch(() => {});
       }
-      lastTickets = currentKeys;
-    }
 
-    onValue(ref(db, 'pickupQueue'), (snapshot) => {
-      offlineBanner.style.display = "none";
-      const data = snapshot.val() || {};
-      const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
-      playDingIfNew(sorted);
+      lastTickets = currentKeys;
       listEl.innerHTML = "";
+
       sorted.slice(0, 10).forEach(([ticket, info]) => {
         const div = document.createElement("div");
         div.className = "ticket";
         const timeStr = formatTime(info.time);
         div.innerHTML = `${ticket}<span class="time">${timeStr}</span>`;
 
-        // Add highlight if new
-        if (!lastTickets.includes(ticket)) {
+        if (newOnes.includes(ticket)) {
           div.classList.add("highlight");
-          void div.offsetWidth; // force reflow for animation
         }
 
         listEl.appendChild(div);
       });
+    }
+
+    onValue(ref(db, 'pickupQueue'), (snapshot) => {
+      offlineBanner.style.display = "none";
+      const data = snapshot.val() || {};
+      renderTickets(data);
     });
 
-    // Firebase connection check
-    const connectedRef = ref(db, ".info/connected");
-    onValue(connectedRef, (snap) => {
+    onValue(ref(db, ".info/connected"), (snap) => {
       offlineBanner.style.display = snap.val() ? "none" : "block";
     });
 
-    // Allow sound and fullscreen on first user interaction
     document.addEventListener("click", () => {
       canPlaySound = true;
       const elem = document.documentElement;
