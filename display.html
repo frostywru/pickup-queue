@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Pickup Queue Display</title>
+  <title>Pickup Display</title>
   <style>
     body {
       margin: 0;
@@ -91,7 +91,8 @@
   <h1>For Pick-up:</h1>
   <div id="ticket-list"></div>
 
-  <audio id="ding" src="https://www.soundjay.com/button/sounds/button-3.mp3" preload="auto"></audio>
+  <!-- Use local sound file -->
+  <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
@@ -102,7 +103,7 @@
       authDomain: "pickup-queue-b97b5.firebaseapp.com",
       databaseURL: "https://pickup-queue-b97b5-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "pickup-queue-b97b5",
-      storageBucket: "pickup-queue-b97b5.firebasestorage.app",
+      storageBucket: "pickup-queue-b97b5.appspot.com",
       messagingSenderId: "81695203249",
       appId: "1:81695203249:web:8888a6f9de815b34566790"
     };
@@ -125,11 +126,10 @@
     }
 
     function renderTickets(data) {
-      const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time); // oldest first
+      const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
       const currentKeys = sorted.map(([ticket]) => ticket);
       const newOnes = currentKeys.filter(ticket => !lastTickets.includes(ticket));
 
-      // Play sound if new tickets
       if (newOnes.length > 0 && canPlaySound) {
         ding.currentTime = 0;
         ding.play().catch(() => {});
@@ -143,28 +143,26 @@
         div.className = "ticket";
         const timeStr = formatTime(info.time);
         div.innerHTML = `${ticket}<span class="time">${timeStr}</span>`;
-
         if (newOnes.includes(ticket)) {
           div.classList.add("highlight");
         }
-
         listEl.appendChild(div);
       });
     }
 
-    // Live update of tickets
+    // Watch for updates
     onValue(ref(db, 'pickupQueue'), (snapshot) => {
       offlineBanner.style.display = "none";
       const data = snapshot.val() || {};
       renderTickets(data);
     });
 
-    // Offline warning
+    // Offline banner
     onValue(ref(db, ".info/connected"), (snap) => {
       offlineBanner.style.display = snap.val() ? "none" : "block";
     });
 
-    // Enable sound and fullscreen on first tap/click
+    // Unlock sound + fullscreen
     document.addEventListener("click", () => {
       if (!canPlaySound) {
         canPlaySound = true;
