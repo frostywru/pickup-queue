@@ -1,66 +1,123 @@
-
 <!DOCTYPE html>
 <html>
 <head>
   <title>Pickup Queue Display</title>
   <style>
     body {
-      font-family: sans-serif;
-      text-align: center;
-      background-color: #ffffff;
-      padding: 50px;
+      margin: 0;
+      font-family: "Arial Black", sans-serif;
+      background-color: #000;
+      color: #00FF88;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      height: 100vh;
+      padding-top: 40px;
     }
+
     h1 {
-      font-size: 3em;
+      font-size: 3rem;
       margin-bottom: 30px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
     }
+
     .ticket {
-      font-size: 2.5em;
-      background-color: #f0f0f0;
-      margin: 10px auto;
-      padding: 20px;
-      width: 200px;
-      border-radius: 15px;
+      font-size: 4rem;
+      background-color: #111;
+      border: 2px solid #00FF88;
+      padding: 20px 40px;
+      margin: 15px;
+      border-radius: 20px;
+      animation: fadeIn 0.6s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
   </style>
+
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
 <body>
-  <h1>FOR PICK-UP</h1>
+  <h1>Now Serving</h1>
   <div id="ticket-list"></div>
+
+  <!-- 🔔 Sound to play on new ticket -->
+  <audio id="ding" src="https://www.soundjay.com/button/sounds/button-3.mp3" preload="auto"></audio>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
     import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
 
-    
-const firebaseConfig = {
-  apiKey: "AIzaSyDvm5SusJfqnB_HP5_M9cEat6ZuKKT86BY",
-  authDomain: "pickup-queue-b97b5.firebaseapp.com",
-  databaseURL: "https://pickup-queue-b97b5-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "pickup-queue-b97b5",
-  storageBucket: "pickup-queue-b97b5.firebasestorage.app",
-  messagingSenderId: "81695203249",
-  appId: "1:81695203249:web:8888a6f9de815b34566790"
-};
-
+    const firebaseConfig = {
+      apiKey: "AIzaSyDvm5SusJfqnB_HP5_M9cEat6ZuKKT86BY",
+      authDomain: "pickup-queue-b97b5.firebaseapp.com",
+      databaseURL: "https://pickup-queue-b97b5-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "pickup-queue-b97b5",
+      storageBucket: "pickup-queue-b97b5.firebasestorage.app",
+      messagingSenderId: "81695203249",
+      appId: "1:81695203249:web:8888a6f9de815b34566790"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const listEl = document.getElementById("ticket-list");
+    const ding = document.getElementById("ding");
 
-    const ticketList = document.getElementById("ticket-list");
+    let lastTickets = [];
+
+    function formatTime(ms) {
+      const d = new Date(ms);
+      const h = d.getHours() % 12 || 12;
+      const m = d.getMinutes().toString().padStart(2, '0');
+      const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
+      return `${h}:${m} ${ampm}`;
+    }
+
+    function playDingIfNew(currentTickets) {
+      const currentKeys = currentTickets.map(([ticket]) => ticket);
+      const newOnes = currentKeys.filter(ticket => !lastTickets.includes(ticket));
+      if (newOnes.length > 0) {
+        ding.play();
+      }
+      lastTickets = currentKeys;
+    }
 
     onValue(ref(db, 'pickupQueue'), (snapshot) => {
       const data = snapshot.val() || {};
-      ticketList.innerHTML = "";
-      Object.keys(data).forEach(ticket => {
+      const sorted = Object.entries(data).sort((a, b) => b[1].time - a[1].time);
+      playDingIfNew(sorted);
+      listEl.innerHTML = "";
+      sorted.slice(0, 5).forEach(([ticket, info]) => {
         const div = document.createElement("div");
+        const time = formatTime(info.time);
         div.className = "ticket";
-        div.textContent = ticket;
-        ticketList.appendChild(div);
+        div.textContent = `${ticket} (${time})`;
+        listEl.appendChild(div);
       });
     });
+
+    // ⛳ Auto-request fullscreen on first click/tap (browsers block autoplay fullscreen)
+    document.addEventListener("click", () => {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen().catch(() => {});
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+      } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+      }
+    }, { once: true });
   </script>
 </body>
 </html>
