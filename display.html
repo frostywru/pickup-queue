@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Pickup Display</title>
+  <title>Pickup Queue Display</title>
   <style>
     body {
       margin: 0;
@@ -20,6 +20,15 @@
     #logo {
       max-width: 200px;
       margin-bottom: 10px;
+    }
+
+    #clock {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 2rem;
+      font-family: "Arial", sans-serif;
+      color: #00FF88;
     }
 
     h1 {
@@ -86,12 +95,13 @@
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
 <body>
+  <div id="clock"></div>
   <img id="logo" src="logo.png" alt="Your Logo">
   <div id="offline-banner">⚠️ Offline: Waiting for connection...</div>
   <h1>For Pick-up:</h1>
   <div id="ticket-list"></div>
 
-  <!-- Use local sound file -->
+  <!-- Local sound file -->
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
   <script type="module">
@@ -125,6 +135,17 @@
       return `${h}:${m} ${ampm}`;
     }
 
+    function updateClock() {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = now.getMinutes().toString().padStart(2, "0");
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12 || 12;
+      document.getElementById("clock").textContent = `${hours}:${minutes} ${ampm}`;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
     function renderTickets(data) {
       const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
       const currentKeys = sorted.map(([ticket]) => ticket);
@@ -150,19 +171,16 @@
       });
     }
 
-    // Watch for updates
     onValue(ref(db, 'pickupQueue'), (snapshot) => {
       offlineBanner.style.display = "none";
       const data = snapshot.val() || {};
       renderTickets(data);
     });
 
-    // Offline banner
     onValue(ref(db, ".info/connected"), (snap) => {
       offlineBanner.style.display = snap.val() ? "none" : "block";
     });
 
-    // Unlock sound + fullscreen
     document.addEventListener("click", () => {
       if (!canPlaySound) {
         canPlaySound = true;
