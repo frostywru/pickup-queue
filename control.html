@@ -50,7 +50,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-    import { getDatabase, ref, set, remove, onValue, get, child } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+    import { getDatabase, ref, set, remove, onValue } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDvm5SusJfqnB_HP5_M9cEat6ZuKKT86BY",
@@ -78,7 +78,7 @@
       onValue(ref(db, 'pickupQueue'), (snapshot) => {
         const data = snapshot.val() || {};
         ticketList.innerHTML = "";
-        const sorted = Object.entries(data).sort((a, b) => b[1].time - a[1].time);
+        const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time); // oldest first
         sorted.forEach(([ticket, info]) => {
           const div = document.createElement("div");
           const time = formatTime(new Date(info.time));
