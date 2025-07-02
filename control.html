@@ -31,12 +31,16 @@
     .ticket:hover {
       background-color: #ffe0e0;
     }
+    #status {
+      font-size: 0.8em;
+      margin-left: 10px;
+    }
   </style>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
 <body>
-  <h2>Control Panel</h2>
+  <h2>Control Panel <span id="status">🔴 Offline</span></h2>
   <input type="text" id="ticketInput" placeholder="Enter pickup info">
   <br>
   <button onclick="addTicket()">Add</button>
@@ -45,7 +49,6 @@
   <h3>Current For Pick-up:</h3>
   <div id="ticket-list"></div>
 
-  <!-- Ding sound -->
   <audio id="ding" src="https://www.soundjay.com/button/sounds/button-3.mp3" preload="auto"></audio>
 
   <script type="module">
@@ -66,6 +69,7 @@
     const db = getDatabase(app);
     const ticketList = document.getElementById("ticket-list");
     const ding = document.getElementById("ding");
+    const statusEl = document.getElementById("status");
 
     function formatTime(date) {
       const hours = date.getHours() % 12 || 12;
@@ -113,6 +117,14 @@
         remove(ref(db, 'pickupQueue'));
       }
     }
+
+    onValue(ref(db, '.info/connected'), (snap) => {
+      if (snap.val()) {
+        statusEl.textContent = "🟢 Live";
+      } else {
+        statusEl.textContent = "🔴 Offline";
+      }
+    });
 
     refreshTickets();
   </script>
