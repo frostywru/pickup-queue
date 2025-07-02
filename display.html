@@ -181,17 +181,13 @@
       offlineBanner.style.display = snap.val() ? "none" : "block";
     });
 
+    // Only enable audio on user interaction (required by many browsers)
     document.addEventListener("click", () => {
       if (!canPlaySound) {
         canPlaySound = true;
         ding.currentTime = 0;
         ding.play().catch(() => {});
       }
-
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
-      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
     }, { once: true });
   </script>
 </body>
