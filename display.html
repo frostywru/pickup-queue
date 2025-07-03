@@ -168,8 +168,9 @@
     const offlineBanner = document.getElementById("offline-banner");
 
     let lastTickets = [];
+    let lastLaundry = [];
     let canPlaySound = false;
-    let lastAlertTime = 0;
+    let lastAlertTime = localStorage.getItem("lastAlertTime") || 0;
 
     function formatTime(ms) {
       const d = new Date(ms);
@@ -215,8 +216,14 @@
     }
 
     function renderLaundry(data) {
+      const newItems = data || [];
+      if (JSON.stringify(newItems) !== JSON.stringify(lastLaundry) && canPlaySound) {
+        ding.currentTime = 0;
+        ding.play().catch(() => {});
+      }
+      lastLaundry = newItems;
       laundryEl.innerHTML = "";
-      (data || []).forEach(item => {
+      newItems.forEach(item => {
         const li = document.createElement("li");
         li.textContent = item;
         laundryEl.appendChild(li);
@@ -227,6 +234,10 @@
       alertEl.textContent = message;
       alertEl.style.display = "flex";
       let count = 0;
+
+      ding.currentTime = 0;
+      ding.play().catch(() => {});
+      count++;
 
       const interval = setInterval(() => {
         if (count >= 4) {
@@ -255,8 +266,9 @@
 
     onValue(ref(db, 'displayAlert'), (snapshot) => {
       const alertData = snapshot.val();
-      if (alertData && alertData.time !== lastAlertTime) {
+      if (alertData && alertData.time != lastAlertTime) {
         lastAlertTime = alertData.time;
+        localStorage.setItem("lastAlertTime", lastAlertTime);
         showAlert(alertData.message);
       }
     });
