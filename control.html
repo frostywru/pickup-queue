@@ -79,7 +79,8 @@
   <h2>Send Alert</h2>
   <input type="text" id="alertInput" placeholder="Type alert message">
   <div class="center">
-    <button onclick="sendAlert()">Send Alert</button>
+    <button onclick="sendAlert()">Send Alert to Pick-up</button>
+    <button onclick="sendShopAlert()">Send Alert to Shop</button>
   </div>
 
   <script type="module">
@@ -185,6 +186,17 @@
       const message = document.getElementById('alertInput').value.trim();
       if (message) {
         set(ref(db, 'displayAlert'), {
+          message,
+          time: Date.now()
+        });
+        document.getElementById('alertInput').value = '';
+      }
+    }
+
+    window.sendShopAlert = function () {
+      const message = document.getElementById('alertInput').value.trim();
+      if (message) {
+        set(ref(db, 'shopAlert'), {
           message,
           time: Date.now()
         });
