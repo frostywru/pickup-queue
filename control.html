@@ -7,29 +7,20 @@
       font-family: sans-serif;
       text-align: center;
       padding: 30px;
-      background-color: #f4f4f4;
     }
 
-    h2, h3 {
-      margin-top: 40px;
+    input, button {
+      font-size: 1.2em;
+      padding: 10px;
+      margin: 5px;
     }
 
     input {
-      font-size: 1.2em;
-      padding: 10px;
-      width: 260px;
-      margin-bottom: 10px;
-    }
-
-    button {
-      font-size: 1em;
-      padding: 10px 20px;
-      margin: 5px;
-      cursor: pointer;
+      width: 250px;
     }
 
     .ticket, .laundry-item {
-      background-color: #fff;
+      background-color: #f8f8f8;
       border: 1px solid #ccc;
       padding: 10px;
       margin: 5px auto;
@@ -42,10 +33,8 @@
       background-color: #ffe0e0;
     }
 
-    #sync-indicator {
-      margin-top: 10px;
-      color: green;
-      font-weight: bold;
+    .section {
+      margin-top: 40px;
     }
   </style>
 
@@ -53,42 +42,44 @@
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
 <body>
-  <h2>Pickup Queue Control</h2>
+  <h2>Control Panel</h2>
 
-  <input type="text" id="ticketInput" placeholder="Enter pickup info">
-  <br>
-  <button onclick="addTicket()">Add</button>
-  <button onclick="clearAll()">Clear All</button>
+  <!-- For Pick-up Section -->
+  <div class="section">
+    <h3>Add Ticket</h3>
+    <input type="text" id="ticketInput" placeholder="Enter pickup info">
+    <br>
+    <button onclick="addTicket()">Add</button>
+    <button onclick="clearAll()">Clear All</button>
+    <h4>Current For Pick-up:</h4>
+    <div id="ticket-list"></div>
+  </div>
 
-  <div id="sync-indicator">✅ Synced</div>
+  <!-- Laundry Section -->
+  <div class="section">
+    <h3>Laundry Details</h3>
+    <input type="text" id="laundryInput" placeholder="Enter Name / Kilo / Price">
+    <br>
+    <button onclick="addLaundry()">Add</button>
+    <button onclick="clearLaundry()">Clear All</button>
+    <h4>Current Details:</h4>
+    <div id="laundry-list"></div>
+  </div>
 
-  <h3>Current For Pick-up:</h3>
-  <div id="ticket-list"></div>
+  <!-- Alert Section -->
+  <div class="section">
+    <h3>Send Fullscreen Alert</h3>
+    <input type="text" id="alertInput" placeholder="Enter alert message">
+    <br>
+    <button onclick="sendAlert()">Send Alert</button>
+  </div>
 
-  <hr style="margin: 40px 0;">
-
-  <h3>Laundry Details</h3>
-  <input type="text" id="laundryInput" placeholder="Enter Name / Kilo / Price">
-  <br>
-  <button onclick="addLaundry()">Add</button>
-  <button onclick="clearLaundry()">Clear All</button>
-
-  <ul id="laundryList"></ul>
-
-  <hr style="margin: 40px 0;">
-
-  <h3>Display Alert</h3>
-  <input type="text" id="alertInput" placeholder="Enter alert message">
-  <br>
-  <button onclick="sendAlert()">Send Alert</button>
-
+  <!-- Ding Sound -->
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-    import {
-      getDatabase, ref, set, remove, onValue, get
-    } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+    import { getDatabase, ref, set, remove, onValue, get } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDvm5SusJfqnB_HP5_M9cEat6ZuKKT86BY",
@@ -102,15 +93,18 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const ticketList = document.getElementById("ticket-list");
-    const laundryList = document.getElementById("laundryList");
     const ding = document.getElementById("ding");
 
-    function formatTime(date) {
-      const hours = date.getHours() % 12 || 12;
-      const minutes = date.getMinutes().toString().padStart(2, "0");
-      const ampm = date.getHours() >= 12 ? "PM" : "AM";
-      return `${hours}:${minutes} ${ampm}`;
+    const ticketList = document.getElementById("ticket-list");
+    const laundryList = document.getElementById("laundry-list");
+
+    // ---- Pickup Section ----
+    function formatTime(ms) {
+      const d = new Date(ms);
+      const h = d.getHours() % 12 || 12;
+      const m = d.getMinutes().toString().padStart(2, '0');
+      const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
+      return `${h}:${m} ${ampm}`;
     }
 
     function refreshTickets() {
@@ -120,7 +114,7 @@
         const sorted = Object.entries(data).sort((a, b) => b[1].time - a[1].time);
         sorted.forEach(([ticket, info]) => {
           const div = document.createElement("div");
-          const time = formatTime(new Date(info.time));
+          const time = formatTime(info.time);
           div.className = "ticket";
           div.textContent = `${ticket} (${time})`;
           div.onclick = () => confirmRemoval(ticket);
@@ -130,17 +124,18 @@
     }
 
     window.addTicket = function () {
-      const ticket = document.getElementById('ticketInput').value.trim();
+      const input = document.getElementById("ticketInput");
+      const ticket = input.value.trim();
       if (ticket) {
         const now = Date.now();
         set(ref(db, 'pickupQueue/' + ticket), { time: now });
-        document.getElementById('ticketInput').value = '';
+        input.value = '';
         ding.play().catch(() => {});
       }
-    }
+    };
 
     function confirmRemoval(ticket) {
-      if (confirm(`Mark ticket "${ticket}" as already picked up?`)) {
+      if (confirm(`Mark "${ticket}" as picked up?`)) {
         remove(ref(db, 'pickupQueue/' + ticket));
       }
     }
@@ -149,6 +144,21 @@
       if (confirm("Clear all tickets?")) {
         remove(ref(db, 'pickupQueue'));
       }
+    }
+
+    // ---- Laundry Section ----
+    function refreshLaundry() {
+      onValue(ref(db, 'laundryDetails'), (snapshot) => {
+        const data = snapshot.val() || [];
+        laundryList.innerHTML = "";
+        data.forEach((item, index) => {
+          const div = document.createElement("div");
+          div.className = "laundry-item";
+          div.textContent = item;
+          div.onclick = () => confirmRemoveLaundry(index);
+          laundryList.appendChild(div);
+        });
+      });
     }
 
     window.addLaundry = function () {
@@ -160,9 +170,20 @@
           current.push(text);
           set(ref(db, "laundryDetails"), current);
           input.value = "";
+          ding.play().catch(() => {});
         });
       }
     };
+
+    function confirmRemoveLaundry(index) {
+      if (confirm("Remove this laundry detail?")) {
+        get(ref(db, "laundryDetails")).then((snap) => {
+          const current = snap.val() || [];
+          current.splice(index, 1);
+          set(ref(db, "laundryDetails"), current);
+        });
+      }
+    }
 
     window.clearLaundry = function () {
       if (confirm("Clear all laundry details?")) {
@@ -170,35 +191,19 @@
       }
     };
 
+    // ---- Alert ----
     window.sendAlert = function () {
-      const msg = document.getElementById("alertInput").value.trim();
-      if (msg) {
-        set(ref(db, "displayAlert"), {
-          message: msg,
-          timestamp: Date.now()
-        });
+      const message = document.getElementById("alertInput").value.trim();
+      if (message) {
+        set(ref(db, "displayAlert"), { message });
         document.getElementById("alertInput").value = "";
+        ding.play().catch(() => {});
       }
     };
 
-    onValue(ref(db, "laundryDetails"), (snapshot) => {
-      const data = snapshot.val() || [];
-      laundryList.innerHTML = "";
-      data.forEach((item, index) => {
-        const li = document.createElement("li");
-        li.className = "laundry-item";
-        li.textContent = item;
-        li.onclick = () => {
-          if (confirm(`Remove "${item}"?`)) {
-            data.splice(index, 1);
-            set(ref(db, "laundryDetails"), data);
-          }
-        };
-        laundryList.appendChild(li);
-      });
-    });
-
+    // Start listeners
     refreshTickets();
+    refreshLaundry();
   </script>
 </body>
 </html>
