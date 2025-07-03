@@ -9,21 +9,25 @@
       padding: 30px;
       background-color: #f4f4f4;
     }
+
     h2, h3 {
       margin-bottom: 10px;
     }
+
     input {
       font-size: 1.2em;
       padding: 10px;
       width: 250px;
       margin: 10px;
     }
+
     button {
       font-size: 1em;
       padding: 10px 20px;
       margin: 10px;
     }
-    .ticket {
+
+    .ticket, .laundry {
       background-color: #fff;
       border: 1px solid #ccc;
       padding: 10px;
@@ -32,9 +36,11 @@
       cursor: pointer;
       border-radius: 8px;
     }
-    .ticket:hover {
+
+    .ticket:hover, .laundry:hover {
       background-color: #ffe0e0;
     }
+
     .center {
       display: flex;
       justify-content: center;
@@ -42,6 +48,7 @@
       flex-wrap: wrap;
     }
   </style>
+
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
@@ -65,6 +72,8 @@
     <button onclick="clearLaundry()">Clear</button>
   </div>
 
+  <div id="laundry-list"></div>
+
   <hr><br>
 
   <h2>Send Alert</h2>
@@ -75,7 +84,7 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-    import { getDatabase, ref, set, remove, onValue, push } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+    import { getDatabase, ref, set, remove, onValue } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDvm5SusJfqnB_HP5_M9cEat6ZuKKT86BY",
@@ -90,6 +99,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const ticketList = document.getElementById("ticket-list");
+    const laundryList = document.getElementById("laundry-list");
 
     function refreshTickets() {
       onValue(ref(db, 'pickupQueue'), (snapshot) => {
@@ -102,6 +112,20 @@
           div.textContent = `${ticket}`;
           div.onclick = () => confirmRemoval(ticket);
           ticketList.appendChild(div);
+        });
+      });
+    }
+
+    function refreshLaundry() {
+      onValue(ref(db, 'laundryDetails'), (snapshot) => {
+        const data = snapshot.val() || [];
+        laundryList.innerHTML = "";
+        data.forEach((item, index) => {
+          const div = document.createElement("div");
+          div.className = "laundry";
+          div.textContent = item;
+          div.onclick = () => confirmLaundryRemove(index);
+          laundryList.appendChild(div);
         });
       });
     }
@@ -141,6 +165,16 @@
       }
     }
 
+    function confirmLaundryRemove(index) {
+      if (confirm("Remove this laundry detail?")) {
+        onValue(ref(db, 'laundryDetails'), (snapshot) => {
+          let data = snapshot.val() || [];
+          data.splice(index, 1);
+          set(ref(db, 'laundryDetails'), data);
+        }, { onlyOnce: true });
+      }
+    }
+
     window.clearLaundry = function () {
       if (confirm("Clear all laundry details?")) {
         remove(ref(db, 'laundryDetails'));
@@ -159,6 +193,7 @@
     }
 
     refreshTickets();
+    refreshLaundry();
   </script>
 </body>
 </html>
