@@ -7,60 +7,88 @@
       font-family: sans-serif;
       text-align: center;
       padding: 30px;
+      background-color: #f4f4f4;
     }
+
+    h2, h3 {
+      margin-top: 40px;
+    }
+
     input {
       font-size: 1.2em;
       padding: 10px;
-      width: 200px;
+      width: 260px;
       margin-bottom: 10px;
     }
+
     button {
       font-size: 1em;
       padding: 10px 20px;
       margin: 5px;
+      cursor: pointer;
     }
-    .ticket {
-      background-color: #f8f8f8;
+
+    .ticket, .laundry-item {
+      background-color: #fff;
       border: 1px solid #ccc;
       padding: 10px;
       margin: 5px auto;
-      width: 280px;
+      width: 300px;
       cursor: pointer;
       border-radius: 8px;
     }
-    .ticket:hover {
+
+    .ticket:hover, .laundry-item:hover {
       background-color: #ffe0e0;
     }
-    #status {
-      font-size: 0.8em;
-      margin-left: 10px;
+
+    #sync-indicator {
+      margin-top: 10px;
+      color: green;
+      font-weight: bold;
     }
   </style>
+
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
 <body>
-  <h2>Control Panel <span id="status">🔴 Offline</span></h2>
+  <h2>Pickup Queue Control</h2>
+
   <input type="text" id="ticketInput" placeholder="Enter pickup info">
   <br>
   <button onclick="addTicket()">Add</button>
   <button onclick="clearAll()">Clear All</button>
 
+  <div id="sync-indicator">✅ Synced</div>
+
   <h3>Current For Pick-up:</h3>
   <div id="ticket-list"></div>
 
-  <audio id="ding" src="https://www.soundjay.com/button/sounds/button-3.mp3" preload="auto"></audio>
+  <hr style="margin: 40px 0;">
+
+  <h3>Laundry Details</h3>
+  <input type="text" id="laundryInput" placeholder="Add laundry detail">
+  <br>
+  <button onclick="addLaundry()">Add</button>
+  <button onclick="clearLaundry()">Clear All</button>
+
+  <ul id="laundryList"></ul>
+
+  <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-    import { getDatabase, ref, set, remove, onValue } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+    import {
+      getDatabase, ref, set, remove, onValue, get
+    } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDvm5SusJfqnB_HP5_M9cEat6ZuKKT86BY",
       authDomain: "pickup-queue-b97b5.firebaseapp.com",
       databaseURL: "https://pickup-queue-b97b5-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "pickup-queue-b97b5",
-      storageBucket: "pickup-queue-b97b5.firebasestorage.app",
+      storageBucket: "pickup-queue-b97b5.appspot.com",
       messagingSenderId: "81695203249",
       appId: "1:81695203249:web:8888a6f9de815b34566790"
     };
@@ -68,8 +96,9 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const ticketList = document.getElementById("ticket-list");
+    const laundryList = document.getElementById("laundryList");
     const ding = document.getElementById("ding");
-    const statusEl = document.getElementById("status");
+    const syncIndicator = document.getElementById("sync-indicator");
 
     function formatTime(date) {
       const hours = date.getHours() % 12 || 12;
@@ -82,7 +111,7 @@
       onValue(ref(db, 'pickupQueue'), (snapshot) => {
         const data = snapshot.val() || {};
         ticketList.innerHTML = "";
-        const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time); // oldest first
+        const sorted = Object.entries(data).sort((a, b) => b[1].time - a[1].time);
         sorted.forEach(([ticket, info]) => {
           const div = document.createElement("div");
           const time = formatTime(new Date(info.time));
@@ -94,36 +123,63 @@
       });
     }
 
-    window.addTicket = function() {
+    window.addTicket = function () {
       const ticket = document.getElementById('ticketInput').value.trim();
       if (ticket) {
         const now = Date.now();
-        set(ref(db, 'pickupQueue/' + ticket), {
-          time: now
-        });
+        set(ref(db, 'pickupQueue/' + ticket), { time: now });
         document.getElementById('ticketInput').value = '';
-        ding.play(); // play sound
+        ding.play().catch(() => {});
       }
     }
 
     function confirmRemoval(ticket) {
-      if (window.confirm('Mark ticket "' + ticket + '" as already picked up?')) {
+      if (confirm(`Mark ticket "${ticket}" as already picked up?`)) {
         remove(ref(db, 'pickupQueue/' + ticket));
       }
     }
 
-    window.clearAll = function() {
+    window.clearAll = function () {
       if (confirm("Clear all tickets?")) {
         remove(ref(db, 'pickupQueue'));
       }
     }
 
-    onValue(ref(db, '.info/connected'), (snap) => {
-      if (snap.val()) {
-        statusEl.textContent = "🟢 Live";
-      } else {
-        statusEl.textContent = "🔴 Offline";
+    // Laundry Functions
+    window.addLaundry = function () {
+      const input = document.getElementById("laundryInput");
+      const text = input.value.trim();
+      if (text) {
+        get(ref(db, "laundryDetails")).then((snap) => {
+          const current = snap.val() || [];
+          current.push(text);
+          set(ref(db, "laundryDetails"), current);
+          input.value = "";
+        });
       }
+    };
+
+    window.clearLaundry = function () {
+      if (confirm("Clear all laundry details?")) {
+        remove(ref(db, "laundryDetails"));
+      }
+    };
+
+    onValue(ref(db, "laundryDetails"), (snapshot) => {
+      const data = snapshot.val() || [];
+      laundryList.innerHTML = "";
+      data.forEach((item, index) => {
+        const li = document.createElement("li");
+        li.className = "laundry-item";
+        li.textContent = item;
+        li.onclick = () => {
+          if (confirm(`Remove "${item}"?`)) {
+            data.splice(index, 1);
+            set(ref(db, "laundryDetails"), data);
+          }
+        };
+        laundryList.appendChild(li);
+      });
     });
 
     refreshTickets();
