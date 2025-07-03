@@ -9,26 +9,21 @@
       background-color: #000;
       color: #00FF88;
       display: flex;
-      flex-direction: row;
       height: 100vh;
       overflow: hidden;
+      position: relative;
     }
 
-    #left, #right {
-      flex: 1;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-
-    #left {
-      border-right: 4px solid #00FF88;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    #right {
-      overflow-y: auto;
+    /* Transparent background logo */
+    #bg-logo {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0.05;
+      max-width: 60%;
+      z-index: 0;
+      pointer-events: none;
     }
 
     #clock {
@@ -38,39 +33,28 @@
       font-size: 2rem;
       font-family: "Arial", sans-serif;
       color: #00FF88;
+      z-index: 1;
     }
 
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 20px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-      text-align: center;
+    .column {
+      flex: 1;
+      padding: 30px;
+      box-sizing: border-box;
+      z-index: 1;
+      overflow-y: auto;
     }
 
-    #offline-banner {
-      display: none;
-      background-color: red;
-      color: white;
-      padding: 10px 20px;
-      font-size: 1.2rem;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      text-align: center;
-    }
-
-    #ticket-list {
+    #pickup-list {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 20px;
-      width: 100%;
     }
 
     .ticket {
       font-size: 3rem;
       background-color: #111;
       border: 2px solid #00FF88;
-      padding: 30px;
+      padding: 20px;
       border-radius: 20px;
       text-align: center;
     }
@@ -86,40 +70,68 @@
     }
 
     .time {
-      font-size: 1.4rem;
+      font-size: 1.3rem;
       margin-top: 10px;
+    }
+
+    .separator {
+      width: 4px;
+      background-color: #00FF88;
+      height: 100%;
+      z-index: 1;
     }
 
     #laundry-list {
       font-size: 2rem;
-      line-height: 1.8;
-      padding-left: 20px;
+      list-style-type: disc;
+      padding-left: 30px;
     }
 
-    #alert {
+    #offline-banner {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: red;
+      color: white;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      border-radius: 8px;
+      display: none;
+      z-index: 10;
+    }
+
+    /* Fullscreen Alert Overlay */
+    #alert-box {
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
       height: 100%;
-      background-color: red;
+      width: 100%;
+      background-color: rgba(255, 0, 0, 0.8);
       color: white;
-      font-size: 4rem;
+      font-size: 3rem;
       display: none;
-      justify-content: center;
       align-items: center;
+      justify-content: center;
       text-align: center;
-      z-index: 9999;
-      transition: background-color 1s ease;
-      animation: alertFade 15s linear;
+      z-index: 999;
+      padding: 40px;
+      box-sizing: border-box;
+      animation: colorFade 15s ease-in-out;
     }
 
-    @keyframes alertFade {
-      0%   { background-color: red; }
-      25%  { background-color: orange; }
-      50%  { background-color: yellow; color: black; }
-      75%  { background-color: orange; }
-      100% { background-color: red; }
+    @keyframes colorFade {
+      0%   { background-color: rgba(255,0,0,0.85); }
+      33%  { background-color: rgba(255,128,0,0.85); }
+      66%  { background-color: rgba(255,255,0,0.85); }
+      100% { background-color: rgba(255,0,0,0.85); }
+    }
+
+    @media (max-width: 900px) {
+      #pickup-list {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 
@@ -129,18 +141,21 @@
 <body>
   <div id="clock"></div>
   <div id="offline-banner">⚠️ Offline: Waiting for connection...</div>
+  <img id="bg-logo" src="logo.png" alt="Background Logo">
 
-  <div id="alert"></div>
-
-  <div id="left">
+  <div class="column">
     <h1>For Pick-up:</h1>
-    <div id="ticket-list"></div>
+    <div id="pickup-list"></div>
   </div>
 
-  <div id="right">
+  <div class="separator"></div>
+
+  <div class="column">
     <h1>Laundry Details</h1>
     <ul id="laundry-list"></ul>
   </div>
+
+  <div id="alert-box"></div>
 
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
@@ -160,130 +175,112 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const listEl = document.getElementById("ticket-list");
-    const laundryEl = document.getElementById("laundry-list");
-    const clockEl = document.getElementById("clock");
+
+    const pickupList = document.getElementById("pickup-list");
+    const laundryList = document.getElementById("laundry-list");
     const ding = document.getElementById("ding");
-    const alertEl = document.getElementById("alert");
+    const alertBox = document.getElementById("alert-box");
     const offlineBanner = document.getElementById("offline-banner");
 
-    let lastTickets = [];
+    let lastPickups = [];
     let lastLaundry = [];
-    let canPlaySound = false;
-    let lastAlertTime = localStorage.getItem("lastAlertTime") || 0;
+    let lastAlertTime = 0;
+    let canPlay = false;
 
-    function formatTime(ms) {
-      const d = new Date(ms);
-      const h = d.getHours() % 12 || 12;
-      const m = d.getMinutes().toString().padStart(2, '0');
-      const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
-      return `${h}:${m} ${ampm}`;
-    }
-
+    // Clock
     function updateClock() {
       const now = new Date();
-      let hours = now.getHours();
-      const minutes = now.getMinutes().toString().padStart(2, "0");
-      const ampm = hours >= 12 ? "PM" : "AM";
-      hours = hours % 12 || 12;
-      clockEl.textContent = `${hours}:${minutes} ${ampm}`;
+      let h = now.getHours();
+      const m = now.getMinutes().toString().padStart(2, '0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      document.getElementById("clock").textContent = `${h}:${m} ${ampm}`;
     }
-
     setInterval(updateClock, 1000);
     updateClock();
 
-    function renderTickets(data) {
+    // Pickup
+    onValue(ref(db, 'pickupQueue'), (snapshot) => {
+      const data = snapshot.val() || {};
       const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
-      const currentKeys = sorted.map(([ticket]) => ticket);
-      const newOnes = currentKeys.filter(ticket => !lastTickets.includes(ticket));
-      if (newOnes.length > 0 && canPlaySound) {
-        ding.currentTime = 0;
-        ding.play().catch(() => {});
-      }
-
-      lastTickets = currentKeys;
-      listEl.innerHTML = "";
+      const current = sorted.map(([key]) => key);
+      const newOnes = current.filter(x => !lastPickups.includes(x));
+      pickupList.innerHTML = '';
       sorted.forEach(([ticket, info]) => {
         const div = document.createElement("div");
         div.className = "ticket";
-        const timeStr = formatTime(info.time);
-        div.innerHTML = `${ticket}<div class="time">${timeStr}</div>`;
-        if (newOnes.includes(ticket)) {
-          div.classList.add("highlight");
-        }
-        listEl.appendChild(div);
+        if (newOnes.includes(ticket)) div.classList.add("highlight");
+        div.innerHTML = `${ticket}<div class="time">${formatTime(info.time)}</div>`;
+        pickupList.appendChild(div);
       });
-    }
+      if (newOnes.length > 0) playDing();
+      lastPickups = current;
+    });
 
-    function renderLaundry(data) {
-      const newItems = data || [];
-      if (JSON.stringify(newItems) !== JSON.stringify(lastLaundry) && canPlaySound) {
+    // Laundry
+    onValue(ref(db, 'laundryDetails'), (snapshot) => {
+      const data = snapshot.val() || [];
+      laundryList.innerHTML = '';
+      const newOnes = data.filter(x => !lastLaundry.includes(x));
+      data.forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        laundryList.appendChild(li);
+      });
+      if (newOnes.length > 0) playDing();
+      lastLaundry = data;
+    });
+
+    // Alert
+    onValue(ref(db, 'displayAlert'), (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.time !== lastAlertTime) {
+        lastAlertTime = data.time;
+        showAlert(data.message);
+      }
+    });
+
+    // Sound & Alert
+    function playDing() {
+      if (canPlay) {
         ding.currentTime = 0;
         ding.play().catch(() => {});
       }
-      lastLaundry = newItems;
-      laundryEl.innerHTML = "";
-      newItems.forEach(item => {
-        const li = document.createElement("li");
-        li.textContent = item;
-        laundryEl.appendChild(li);
-      });
     }
 
     function showAlert(message) {
-      alertEl.textContent = message;
-      alertEl.style.display = "flex";
+      alertBox.textContent = message;
+      alertBox.style.display = "flex";
+      playDing();
       let count = 0;
-
-      ding.currentTime = 0;
-      ding.play().catch(() => {});
-      count++;
-
       const interval = setInterval(() => {
-        if (count >= 4) {
-          clearInterval(interval);
-        } else {
-          ding.currentTime = 0;
-          ding.play().catch(() => {});
-          count++;
-        }
+        playDing();
+        count++;
+        if (count >= 4) clearInterval(interval);
       }, 4000);
-
       setTimeout(() => {
-        alertEl.style.display = "none";
+        alertBox.style.display = "none";
       }, 15000);
     }
 
-    onValue(ref(db, 'pickupQueue'), (snapshot) => {
-      offlineBanner.style.display = "none";
-      const data = snapshot.val() || {};
-      renderTickets(data);
-    });
-
-    onValue(ref(db, 'laundryDetails'), (snapshot) => {
-      renderLaundry(snapshot.val());
-    });
-
-    onValue(ref(db, 'displayAlert'), (snapshot) => {
-      const alertData = snapshot.val();
-      if (alertData && alertData.time != lastAlertTime) {
-        lastAlertTime = alertData.time;
-        localStorage.setItem("lastAlertTime", lastAlertTime);
-        showAlert(alertData.message);
-      }
-    });
+    function formatTime(ms) {
+      const d = new Date(ms);
+      let h = d.getHours();
+      const m = d.getMinutes().toString().padStart(2, '0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return `${h}:${m} ${ampm}`;
+    }
 
     onValue(ref(db, ".info/connected"), (snap) => {
       offlineBanner.style.display = snap.val() ? "none" : "block";
     });
 
     document.addEventListener("click", () => {
-      if (!canPlaySound) {
-        canPlaySound = true;
-        ding.currentTime = 0;
-        ding.play().catch(() => {});
+      if (!canPlay) {
+        canPlay = true;
+        playDing();
       }
-
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
       else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
