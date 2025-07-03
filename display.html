@@ -3,23 +3,14 @@
 <head>
   <title>Pickup Queue Display</title>
   <style>
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: "Arial Black", sans-serif;
       background-color: #000;
       color: #00FF88;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
       height: 100vh;
-      padding: 20px;
-      box-sizing: border-box;
-    }
-
-    #logo {
-      max-width: 200px;
-      margin-bottom: 10px;
+      overflow: hidden;
     }
 
     #clock {
@@ -31,41 +22,54 @@
       color: #00FF88;
     }
 
-    h1 {
-      font-size: 3rem;
-      margin-bottom: 10px;
-      text-transform: uppercase;
-      letter-spacing: 2px;
-    }
-
     #offline-banner {
-      display: none;
+      position: absolute;
+      top: 20px;
+      left: 30px;
       background-color: red;
       color: white;
       padding: 10px 20px;
       font-size: 1.2rem;
       border-radius: 8px;
+      display: none;
+    }
+
+    .container {
+      display: flex;
+      height: 100%;
+      padding-top: 60px;
+    }
+
+    .left, .right {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .divider {
+      width: 4px;
+      background-color: #00FF88;
+    }
+
+    .section-title {
+      font-size: 2.5rem;
       margin-bottom: 20px;
+      text-align: center;
     }
 
     #ticket-list {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 20px;
-      width: 100%;
-      max-width: 1600px;
     }
 
     .ticket {
-      font-size: 3.5rem;
+      font-size: 2.5rem;
       background-color: #111;
       border: 2px solid #00FF88;
-      padding: 30px;
+      padding: 20px;
       border-radius: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      text-align: center;
     }
 
     .highlight {
@@ -79,14 +83,14 @@
     }
 
     .time {
-      font-size: 1.4rem;
-      margin-top: 15px;
+      font-size: 1.2rem;
+      margin-top: 10px;
     }
 
-    @media (max-width: 800px) {
-      #ticket-list {
-        grid-template-columns: 1fr;
-      }
+    ul {
+      font-size: 1.5rem;
+      list-style: disc;
+      padding-left: 30px;
     }
   </style>
 
@@ -95,10 +99,19 @@
 </head>
 <body>
   <div id="clock"></div>
-  <img id="logo" src="logo.png" alt="Logo">
   <div id="offline-banner">⚠️ Offline: Waiting for connection...</div>
-  <h1>For Pick-up:</h1>
-  <div id="ticket-list"></div>
+
+  <div class="container">
+    <div class="left">
+      <div class="section-title">For Pick-up</div>
+      <div id="ticket-list"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="right">
+      <div class="section-title">Laundry Details</div>
+      <ul id="laundry-list"></ul>
+    </div>
+  </div>
 
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
@@ -118,20 +131,13 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const listEl = document.getElementById("ticket-list");
     const ding = document.getElementById("ding");
+    const ticketList = document.getElementById("ticket-list");
+    const laundryList = document.getElementById("laundry-list");
     const offlineBanner = document.getElementById("offline-banner");
 
     let lastTickets = [];
     let canPlaySound = false;
-
-    function formatTime(ms) {
-      const d = new Date(ms);
-      const h = d.getHours() % 12 || 12;
-      const m = d.getMinutes().toString().padStart(2, '0');
-      const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
-      return `${h}:${m} ${ampm}`;
-    }
 
     function updateClock() {
       const now = new Date();
@@ -144,7 +150,12 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    function renderTickets(data) {
+    onValue(ref(db, ".info/connected"), (snap) => {
+      offlineBanner.style.display = snap.val() ? "none" : "block";
+    });
+
+    onValue(ref(db, "pickupQueue"), (snapshot) => {
+      const data = snapshot.val() || {};
       const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
       const currentKeys = sorted.map(([ticket]) => ticket);
       const newOnes = currentKeys.filter(ticket => !lastTickets.includes(ticket));
@@ -155,28 +166,25 @@
       }
 
       lastTickets = currentKeys;
-      listEl.innerHTML = "";
-
-      sorted.slice(0, 10).forEach(([ticket, info]) => {
+      ticketList.innerHTML = "";
+      sorted.slice(0, 15).forEach(([ticket, info]) => {
         const div = document.createElement("div");
         div.className = "ticket";
-        const timeStr = formatTime(info.time);
-        div.innerHTML = `${ticket}<span class="time">${timeStr}</span>`;
-        if (newOnes.includes(ticket)) {
-          div.classList.add("highlight");
-        }
-        listEl.appendChild(div);
+        const timeStr = new Date(info.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        div.innerHTML = `${ticket}<div class="time">${timeStr}</div>`;
+        if (newOnes.includes(ticket)) div.classList.add("highlight");
+        ticketList.appendChild(div);
       });
-    }
-
-    onValue(ref(db, 'pickupQueue'), (snapshot) => {
-      offlineBanner.style.display = "none";
-      const data = snapshot.val() || {};
-      renderTickets(data);
     });
 
-    onValue(ref(db, ".info/connected"), (snap) => {
-      offlineBanner.style.display = snap.val() ? "none" : "block";
+    onValue(ref(db, "laundryDetails"), (snapshot) => {
+      const data = snapshot.val() || [];
+      laundryList.innerHTML = "";
+      data.forEach(item => {
+        const li = document.createElement("li");
+        li.textContent = item;
+        laundryList.appendChild(li);
+      });
     });
 
     document.addEventListener("click", () => {
@@ -185,11 +193,8 @@
         ding.currentTime = 0;
         ding.play().catch(() => {});
       }
-
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
-      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
     }, { once: true });
   </script>
 </body>
