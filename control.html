@@ -68,12 +68,19 @@
   <hr style="margin: 40px 0;">
 
   <h3>Laundry Details</h3>
-  <input type="text" id="laundryInput" placeholder="Add laundry detail">
+  <input type="text" id="laundryInput" placeholder="Enter Name / Kilo / Price">
   <br>
   <button onclick="addLaundry()">Add</button>
   <button onclick="clearLaundry()">Clear All</button>
 
   <ul id="laundryList"></ul>
+
+  <hr style="margin: 40px 0;">
+
+  <h3>Display Alert</h3>
+  <input type="text" id="alertInput" placeholder="Enter alert message">
+  <br>
+  <button onclick="sendAlert()">Send Alert</button>
 
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
@@ -98,7 +105,6 @@
     const ticketList = document.getElementById("ticket-list");
     const laundryList = document.getElementById("laundryList");
     const ding = document.getElementById("ding");
-    const syncIndicator = document.getElementById("sync-indicator");
 
     function formatTime(date) {
       const hours = date.getHours() % 12 || 12;
@@ -145,7 +151,6 @@
       }
     }
 
-    // Laundry Functions
     window.addLaundry = function () {
       const input = document.getElementById("laundryInput");
       const text = input.value.trim();
@@ -162,6 +167,17 @@
     window.clearLaundry = function () {
       if (confirm("Clear all laundry details?")) {
         remove(ref(db, "laundryDetails"));
+      }
+    };
+
+    window.sendAlert = function () {
+      const msg = document.getElementById("alertInput").value.trim();
+      if (msg) {
+        set(ref(db, "displayAlert"), {
+          message: msg,
+          timestamp: Date.now()
+        });
+        document.getElementById("alertInput").value = "";
       }
     };
 
