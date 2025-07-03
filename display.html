@@ -3,56 +3,29 @@
 <head>
   <title>Pickup Queue Display</title>
   <style>
-    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: "Arial Black", sans-serif;
       background-color: #000;
       color: #00FF88;
+      display: flex;
       height: 100vh;
       overflow: hidden;
-    }
-
-    #clock {
-      position: absolute;
-      top: 20px;
-      right: 30px;
-      font-size: 2rem;
-      font-family: "Arial", sans-serif;
-      color: #00FF88;
-    }
-
-    #offline-banner {
-      position: absolute;
-      top: 20px;
-      left: 30px;
-      background-color: red;
-      color: white;
-      padding: 10px 20px;
-      font-size: 1.2rem;
-      border-radius: 8px;
-      display: none;
-    }
-
-    .container {
-      display: flex;
-      height: 100%;
-      padding-top: 60px;
     }
 
     .left, .right {
       flex: 1;
       padding: 20px;
+      box-sizing: border-box;
       overflow-y: auto;
     }
 
-    .divider {
-      width: 4px;
-      background-color: #00FF88;
+    .left {
+      border-right: 2px solid #00FF88;
     }
 
-    .section-title {
-      font-size: 2.5rem;
+    h1 {
+      font-size: 2.8rem;
       margin-bottom: 20px;
       text-align: center;
     }
@@ -69,7 +42,10 @@
       border: 2px solid #00FF88;
       padding: 20px;
       border-radius: 20px;
-      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
     }
 
     .highlight {
@@ -87,10 +63,26 @@
       margin-top: 10px;
     }
 
-    ul {
-      font-size: 1.5rem;
+    #laundry-list {
+      font-size: 1.8rem;
       list-style: disc;
       padding-left: 30px;
+    }
+
+    #alert-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: red;
+      color: white;
+      font-size: 3rem;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      z-index: 9999;
     }
   </style>
 
@@ -98,21 +90,16 @@
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
 <body>
-  <div id="clock"></div>
-  <div id="offline-banner">⚠️ Offline: Waiting for connection...</div>
-
-  <div class="container">
-    <div class="left">
-      <div class="section-title">For Pick-up</div>
-      <div id="ticket-list"></div>
-    </div>
-    <div class="divider"></div>
-    <div class="right">
-      <div class="section-title">Laundry Details</div>
-      <ul id="laundry-list"></ul>
-    </div>
+  <div class="left">
+    <h1>For Pick-up</h1>
+    <div id="ticket-list"></div>
+  </div>
+  <div class="right">
+    <h1>Laundry Details</h1>
+    <ul id="laundry-list"></ul>
   </div>
 
+  <div id="alert-overlay"></div>
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
   <script type="module">
@@ -131,71 +118,70 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+
+    const listEl = document.getElementById("ticket-list");
+    const laundryListEl = document.getElementById("laundry-list");
     const ding = document.getElementById("ding");
-    const ticketList = document.getElementById("ticket-list");
-    const laundryList = document.getElementById("laundry-list");
-    const offlineBanner = document.getElementById("offline-banner");
+    const alertOverlay = document.getElementById("alert-overlay");
 
     let lastTickets = [];
-    let canPlaySound = false;
 
-    function updateClock() {
-      const now = new Date();
-      let hours = now.getHours();
-      const minutes = now.getMinutes().toString().padStart(2, "0");
-      const ampm = hours >= 12 ? "PM" : "AM";
-      hours = hours % 12 || 12;
-      document.getElementById("clock").textContent = `${hours}:${minutes} ${ampm}`;
+    function formatTime(ms) {
+      const d = new Date(ms);
+      const h = d.getHours() % 12 || 12;
+      const m = d.getMinutes().toString().padStart(2, '0');
+      const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
+      return `${h}:${m} ${ampm}`;
     }
-    setInterval(updateClock, 1000);
-    updateClock();
 
-    onValue(ref(db, ".info/connected"), (snap) => {
-      offlineBanner.style.display = snap.val() ? "none" : "block";
-    });
+    function showAlert(message) {
+      alertOverlay.textContent = message;
+      alertOverlay.style.display = "flex";
+      setTimeout(() => {
+        alertOverlay.style.display = "none";
+      }, 15000);
+    }
 
-    onValue(ref(db, "pickupQueue"), (snapshot) => {
+    onValue(ref(db, 'pickupQueue'), (snapshot) => {
       const data = snapshot.val() || {};
       const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
       const currentKeys = sorted.map(([ticket]) => ticket);
       const newOnes = currentKeys.filter(ticket => !lastTickets.includes(ticket));
 
-      if (newOnes.length > 0 && canPlaySound) {
+      if (newOnes.length > 0) {
         ding.currentTime = 0;
         ding.play().catch(() => {});
       }
 
       lastTickets = currentKeys;
-      ticketList.innerHTML = "";
-      sorted.slice(0, 15).forEach(([ticket, info]) => {
+      listEl.innerHTML = "";
+
+      sorted.slice(0, 30).forEach(([ticket, info]) => {
         const div = document.createElement("div");
         div.className = "ticket";
-        const timeStr = new Date(info.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        div.innerHTML = `${ticket}<div class="time">${timeStr}</div>`;
+        const timeStr = formatTime(info.time);
+        div.innerHTML = `${ticket}<span class="time">${timeStr}</span>`;
         if (newOnes.includes(ticket)) div.classList.add("highlight");
-        ticketList.appendChild(div);
+        listEl.appendChild(div);
       });
     });
 
     onValue(ref(db, "laundryDetails"), (snapshot) => {
       const data = snapshot.val() || [];
-      laundryList.innerHTML = "";
-      data.forEach(item => {
+      laundryListEl.innerHTML = "";
+      data.forEach((item) => {
         const li = document.createElement("li");
         li.textContent = item;
-        laundryList.appendChild(li);
+        laundryListEl.appendChild(li);
       });
     });
 
-    document.addEventListener("click", () => {
-      if (!canPlaySound) {
-        canPlaySound = true;
-        ding.currentTime = 0;
-        ding.play().catch(() => {});
+    onValue(ref(db, "displayAlert"), (snapshot) => {
+      const alertData = snapshot.val();
+      if (alertData && alertData.message) {
+        showAlert(alertData.message);
       }
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
-    }, { once: true });
+    });
   </script>
 </body>
 </html>
