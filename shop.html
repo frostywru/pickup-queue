@@ -6,67 +6,65 @@
     html, body {
       margin: 0;
       padding: 0;
+      background: black;
       overflow: hidden;
       height: 100%;
-      background: black;
+    }
+
+    #video-container {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
     }
 
     iframe {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      border: none;
-      z-index: 0;
-    }
-
-    #alert {
-      position: fixed;
-      top: 0;
-      left: 0;
       width: 100%;
       height: 100%;
-      font-size: 3rem;
-      background-color: red;
+      border: none;
+    }
+
+    #alert-box {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(255, 0, 0, 1); /* fallback */
       color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 2;
-      opacity: 0.95;
-      animation: colorFade 15s linear infinite;
-    }
-
-    @keyframes colorFade {
-      0%   { background-color: red; }
-      25%  { background-color: orange; }
-      50%  { background-color: yellow; color: black; }
-      75%  { background-color: darkorange; color: white; }
-      100% { background-color: red; }
-    }
-
-    #alert.hidden {
+      font-size: 3rem;
+      font-family: Arial Black, sans-serif;
       display: none;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      z-index: 999;
+      animation: alertColorChange 8s infinite;
+    }
+
+    @keyframes alertColorChange {
+      0%   { background-color: rgba(255, 0, 0, 1); color: white; }
+      25%  { background-color: rgba(255, 165, 0, 1); color: black; }
+      50%  { background-color: rgba(255, 255, 0, 1); color: black; }
+      75%  { background-color: rgba(255, 165, 0, 1); color: black; }
+      100% { background-color: rgba(255, 0, 0, 1); color: white; }
     }
   </style>
 
-  <!-- Firebase SDK -->
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
 <body>
-  <!-- YouTube Video -->
-  <iframe 
-    src="https://www.youtube.com/embed/bBLMwnnTVO8?autoplay=1&loop=1&playlist=bBLMwnnTVO8&mute=1"
-    allow="autoplay; encrypted-media"
-    allowfullscreen>
-  </iframe>
+  <div id="video-container">
+    <iframe id="ytplayer"
+      src="https://www.youtube.com/embed/bBLMwnnTVO8?autoplay=1&mute=0&loop=1&playlist=bBLMwnnTVO8&controls=0&modestbranding=1&rel=0&showinfo=0"
+      allow="autoplay; fullscreen"
+      allowfullscreen>
+    </iframe>
+  </div>
 
-  <!-- Fullscreen Alert -->
-  <div id="alert" class="hidden"></div>
-
-  <!-- Ding sound -->
+  <div id="alert-box"></div>
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
   <script type="module">
@@ -86,36 +84,53 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const alertBox = document.getElementById("alert");
+    const alertBox = document.getElementById("alert-box");
     const ding = document.getElementById("ding");
 
     let lastAlertTime = 0;
+    let alertTimer = null;
+    let dingInterval = null;
 
-    onValue(ref(db, 'shopAlert'), (snapshot) => {
-      const alertData = snapshot.val();
-      if (alertData && alertData.time !== lastAlertTime) {
-        lastAlertTime = alertData.time;
-        alertBox.textContent = alertData.message;
-        alertBox.classList.remove("hidden");
+    onValue(ref(db, "shopAlert"), (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.message && data.time !== lastAlertTime) {
+        lastAlertTime = data.time;
+        showAlert(data.message);
 
-        // Play sound at start
-        ding.currentTime = 0;
-        ding.play().catch(() => {});
-
-        // Repeat sound every 4 seconds during alert
-        let interval = setInterval(() => {
-          ding.currentTime = 0;
-          ding.play().catch(() => {});
-        }, 4000);
-
-        // Hide alert and remove from Firebase after 15 seconds
+        // Auto remove after 15s
         setTimeout(() => {
-          alertBox.classList.add("hidden");
-          clearInterval(interval);
-          remove(ref(db, 'shopAlert'));
+          remove(ref(db, "shopAlert"));
         }, 15000);
       }
     });
+
+    function showAlert(message) {
+      alertBox.textContent = message;
+      alertBox.style.display = "flex";
+
+      try { ding.currentTime = 0; ding.play(); } catch (e) {}
+
+      if (dingInterval) clearInterval(dingInterval);
+      dingInterval = setInterval(() => {
+        try { ding.currentTime = 0; ding.play(); } catch (e) {}
+      }, 4000);
+
+      if (alertTimer) clearTimeout(alertTimer);
+      alertTimer = setTimeout(() => {
+        alertBox.style.display = "none";
+        clearInterval(dingInterval);
+      }, 15000);
+    }
+
+    // Enable sound + fullscreen on user interaction
+    document.addEventListener("click", () => {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
+      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+
+      try { ding.play().catch(() => {}); } catch (e) {}
+    }, { once: true });
   </script>
 </body>
 </html>
