@@ -6,51 +6,48 @@
     html, body {
       margin: 0;
       padding: 0;
-      background-color: black;
       overflow: hidden;
-      font-family: sans-serif;
+      height: 100%;
+      background: black;
     }
 
-    #video-container {
+    iframe {
       position: fixed;
       top: 0;
       left: 0;
-      height: 100vh;
       width: 100vw;
+      height: 100vh;
+      border: none;
       z-index: 0;
-      pointer-events: none;
     }
 
-    #alert-overlay {
+    #alert {
       position: fixed;
       top: 0;
       left: 0;
-      height: 100vh;
-      width: 100vw;
+      width: 100%;
+      height: 100%;
+      font-size: 3rem;
       background-color: red;
       color: white;
-      font-size: 3rem;
       display: flex;
-      justify-content: center;
       align-items: center;
-      z-index: 999;
-      text-align: center;
-      padding: 30px;
-      box-sizing: border-box;
-      opacity: 1;
-      visibility: hidden;
+      justify-content: center;
+      z-index: 2;
+      opacity: 0.95;
+      animation: colorFade 15s linear infinite;
     }
 
-    @keyframes alertCycle {
-      0% { background-color: red; }
-      33% { background-color: orange; }
-      66% { background-color: darkred; }
+    @keyframes colorFade {
+      0%   { background-color: red; }
+      25%  { background-color: orange; }
+      50%  { background-color: yellow; color: black; }
+      75%  { background-color: darkorange; color: white; }
       100% { background-color: red; }
     }
 
-    .active {
-      visibility: visible !important;
-      animation: alertCycle 12s infinite;
+    #alert.hidden {
+      display: none;
     }
   </style>
 
@@ -59,22 +56,22 @@
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
 <body>
-  <div id="video-container">
-    <iframe width="100%" height="600" 
-    src="https://www.youtube.com/embed/bBLMwnnTVO8?autoplay=1&loop=1&playlist=bBLMwnnTVO8"
-    frameborder="0" 
-    allow="autoplay; encrypted-media" 
+  <!-- YouTube Video -->
+  <iframe 
+    src="https://www.youtube.com/embed/bBLMwnnTVO8?autoplay=1&loop=1&playlist=bBLMwnnTVO8&mute=1"
+    allow="autoplay; encrypted-media"
     allowfullscreen>
-    </iframe>
+  </iframe>
 
-  </div>
+  <!-- Fullscreen Alert -->
+  <div id="alert" class="hidden"></div>
 
-  <div id="alert-overlay">Alert Message</div>
+  <!-- Ding sound -->
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
+    import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDvm5SusJfqnB_HP5_M9cEat6ZuKKT86BY",
@@ -89,48 +86,36 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    const overlay = document.getElementById('alert-overlay');
-    const ding = document.getElementById('ding');
+    const alertBox = document.getElementById("alert");
+    const ding = document.getElementById("ding");
 
     let lastAlertTime = 0;
-    let dingInterval = null;
-
-    function showAlert(message) {
-      overlay.textContent = message;
-      overlay.classList.add('active');
-      ding.currentTime = 0;
-      ding.play().catch(() => {});
-      let count = 0;
-
-      dingInterval = setInterval(() => {
-        count++;
-        ding.currentTime = 0;
-        ding.play().catch(() => {});
-        if (count >= 4) {
-          clearInterval(dingInterval);
-        }
-      }, 4000);
-
-      setTimeout(() => {
-        overlay.classList.remove('active');
-      }, 15000);
-    }
 
     onValue(ref(db, 'shopAlert'), (snapshot) => {
-      const data = snapshot.val();
-      if (data && data.time && data.time !== lastAlertTime) {
-        lastAlertTime = data.time;
-        showAlert(data.message);
+      const alertData = snapshot.val();
+      if (alertData && alertData.time !== lastAlertTime) {
+        lastAlertTime = alertData.time;
+        alertBox.textContent = alertData.message;
+        alertBox.classList.remove("hidden");
+
+        // Play sound at start
+        ding.currentTime = 0;
+        ding.play().catch(() => {});
+
+        // Repeat sound every 4 seconds during alert
+        let interval = setInterval(() => {
+          ding.currentTime = 0;
+          ding.play().catch(() => {});
+        }, 4000);
+
+        // Hide alert and remove from Firebase after 15 seconds
+        setTimeout(() => {
+          alertBox.classList.add("hidden");
+          clearInterval(interval);
+          remove(ref(db, 'shopAlert'));
+        }, 15000);
       }
     });
-
-    // Auto fullscreen on first interaction
-    document.addEventListener('click', () => {
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
-      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
-    }, { once: true });
   </script>
 </body>
 </html>
