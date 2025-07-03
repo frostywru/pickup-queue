@@ -83,6 +83,14 @@
       align-items: center;
       text-align: center;
       z-index: 9999;
+      animation: alertColorCycle 15s linear infinite;
+    }
+
+    @keyframes alertColorCycle {
+      0%   { background-color: #c00; }
+      33%  { background-color: orange; }
+      66%  { background-color: #ffcc00; }
+      100% { background-color: #c00; }
     }
   </style>
 
@@ -137,8 +145,15 @@
     function showAlert(message) {
       alertOverlay.textContent = message;
       alertOverlay.style.display = "flex";
+
+      let dingInterval = setInterval(() => {
+        ding.currentTime = 0;
+        ding.play().catch(() => {});
+      }, 4000);
+
       setTimeout(() => {
         alertOverlay.style.display = "none";
+        clearInterval(dingInterval);
       }, 15000);
     }
 
