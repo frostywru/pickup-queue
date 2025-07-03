@@ -14,57 +14,47 @@
       position: relative;
     }
 
-    #logo {
+    #bg-logo {
       position: absolute;
       top: 50%;
       left: 50%;
-      width: 400px;
-      opacity: 0.05;
       transform: translate(-50%, -50%);
+      opacity: 0.05;
+      max-width: 60%;
       z-index: 0;
       pointer-events: none;
     }
 
-    #left, #right {
-      flex: 1;
-      padding: 20px;
-      box-sizing: border-box;
-      overflow-y: auto;
+    #clock {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 2rem;
+      font-family: "Arial", sans-serif;
+      color: #00FF88;
       z-index: 1;
     }
 
-    #left {
-      border-right: 2px solid #00FF88;
+    .column {
+      flex: 1;
+      padding: 30px;
+      box-sizing: border-box;
+      z-index: 1;
+      overflow-y: auto;
     }
 
-    #clock {
-      position: absolute;
-      top: 10px;
-      right: 20px;
-      font-size: 2rem;
-      font-family: Arial, sans-serif;
-      color: #00FF88;
-      z-index: 2;
-    }
-
-    h1 {
-      font-size: 2.5rem;
-      text-align: center;
-      margin-bottom: 20px;
-    }
-
-    #pickup-tickets {
+    #pickup-list {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 20px;
     }
 
     .ticket {
-      font-size: 2.2rem;
+      font-size: 3rem;
       background-color: #111;
       border: 2px solid #00FF88;
       padding: 20px;
-      border-radius: 16px;
+      border-radius: 20px;
       text-align: center;
     }
 
@@ -78,74 +68,92 @@
       100% { background-color: #111; color: #00FF88; transform: scale(1); }
     }
 
+    .time {
+      font-size: 1.3rem;
+      margin-top: 10px;
+    }
+
+    .separator {
+      width: 4px;
+      background-color: #00FF88;
+      height: 100%;
+      z-index: 1;
+    }
+
     #laundry-list {
-      font-size: 1.8rem;
+      font-size: 2rem;
       list-style-type: disc;
       padding-left: 30px;
     }
 
     #offline-banner {
-      display: none;
-      background-color: red;
-      color: white;
-      padding: 8px 20px;
-      font-size: 1rem;
       position: absolute;
       top: 0;
       left: 50%;
       transform: translateX(-50%);
-      border-radius: 0 0 8px 8px;
-      z-index: 5;
+      background-color: red;
+      color: white;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      border-radius: 8px;
+      display: none;
+      z-index: 10;
     }
 
     #alert-box {
-      display: none;
       position: fixed;
       top: 0;
       left: 0;
-      width: 100%;
       height: 100%;
-      background-color: red;
+      width: 100%;
+      background-color: rgba(255, 0, 0, 0.8);
       color: white;
       font-size: 3rem;
-      font-weight: bold;
+      display: none;
       align-items: center;
       justify-content: center;
-      z-index: 9999;
       text-align: center;
+      z-index: 999;
       padding: 40px;
       box-sizing: border-box;
-      animation: colorFade 15s infinite;
+      animation: colorFade 15s ease-in-out;
     }
 
     @keyframes colorFade {
       0%   { background-color: red; }
       33%  { background-color: orange; }
-      66%  { background-color: yellow; color: black; }
+      66%  { background-color: yellow; }
       100% { background-color: red; }
+    }
+
+    @media (max-width: 900px) {
+      #pickup-list {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
 <body>
   <div id="clock"></div>
   <div id="offline-banner">⚠️ Offline: Waiting for connection...</div>
-  <img id="logo" src="logo.png" alt="Logo">
+  <img id="bg-logo" src="logo.png" alt="Background Logo">
 
-  <div id="alert-box"></div>
-
-  <div id="left">
-    <h1>For Pick-up</h1>
-    <div id="pickup-tickets"></div>
+  <div class="column">
+    <h1>For Pick-up:</h1>
+    <div id="pickup-list"></div>
   </div>
 
-  <div id="right">
+  <div class="separator"></div>
+
+  <div class="column">
     <h1>Laundry Details</h1>
     <ul id="laundry-list"></ul>
   </div>
+
+  <div id="alert-box"></div>
 
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
@@ -165,105 +173,114 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    const pickupEl = document.getElementById("pickup-tickets");
-    const laundryEl = document.getElementById("laundry-list");
-    const offlineBanner = document.getElementById("offline-banner");
+
+    const pickupList = document.getElementById("pickup-list");
+    const laundryList = document.getElementById("laundry-list");
     const ding = document.getElementById("ding");
     const alertBox = document.getElementById("alert-box");
+    const offlineBanner = document.getElementById("offline-banner");
 
-    let lastPickup = [];
+    let lastPickups = [];
     let lastLaundry = [];
-    let alertAlreadyShown = false;
+    let lastAlertTime = 0;
+    let canPlay = false;
 
-    // Clock
     function updateClock() {
       const now = new Date();
-      let h = now.getHours() % 12 || 12;
-      let m = now.getMinutes().toString().padStart(2, "0");
-      let ampm = now.getHours() >= 12 ? "PM" : "AM";
+      let h = now.getHours();
+      const m = now.getMinutes().toString().padStart(2, '0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
       document.getElementById("clock").textContent = `${h}:${m} ${ampm}`;
     }
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Pickup queue
     onValue(ref(db, 'pickupQueue'), (snapshot) => {
       const data = snapshot.val() || {};
       const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
-      const current = sorted.map(([t]) => t);
-      pickupEl.innerHTML = "";
-
+      const current = sorted.map(([key]) => key);
+      const newOnes = current.filter(x => !lastPickups.includes(x));
+      pickupList.innerHTML = '';
       sorted.forEach(([ticket, info]) => {
         const div = document.createElement("div");
         div.className = "ticket";
-        div.textContent = ticket;
-        if (!lastPickup.includes(ticket)) div.classList.add("highlight");
-        pickupEl.appendChild(div);
+        if (newOnes.includes(ticket)) div.classList.add("highlight");
+        div.innerHTML = `${ticket}<div class="time">${formatTime(info.time)}</div>`;
+        pickupList.appendChild(div);
       });
-
-      if (current.length > lastPickup.length) {
-        ding.currentTime = 0;
-        ding.play().catch(() => {});
-      }
-
-      lastPickup = current;
+      if (newOnes.length > 0) playDing();
+      lastPickups = current;
     });
 
-    // Laundry details
     onValue(ref(db, 'laundryDetails'), (snapshot) => {
-      const data = snapshot.val() || {};
-      const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
-      const current = sorted.map(([_, v]) => v.text);
-      laundryEl.innerHTML = "";
-
-      sorted.forEach(([_, info]) => {
+      const data = snapshot.val() || [];
+      laundryList.innerHTML = '';
+      const newOnes = data.filter(x => !lastLaundry.includes(x));
+      data.forEach((item) => {
         const li = document.createElement("li");
-        li.textContent = info.text;
-        laundryEl.appendChild(li);
+        li.textContent = item;
+        laundryList.appendChild(li);
       });
-
-      if (current.length > lastLaundry.length) {
-        ding.currentTime = 0;
-        ding.play().catch(() => {});
-      }
-
-      lastLaundry = current;
+      if (newOnes.length > 0) playDing();
+      lastLaundry = data;
     });
 
-    // Alert
-    onValue(ref(db, 'activeAlert'), (snapshot) => {
-      const alert = snapshot.val();
-      if (alert && alert.text && !alertAlreadyShown) {
-        alertBox.textContent = alert.text;
-        alertBox.style.display = "flex";
-
-        ding.currentTime = 0;
-        ding.play().catch(() => {});
-
-        let dingInterval = setInterval(() => {
-          ding.currentTime = 0;
-          ding.play().catch(() => {});
-        }, 4000);
-
+    onValue(ref(db, 'displayAlert'), (snapshot) => {
+      const data = snapshot.val();
+      if (data && data.time !== lastAlertTime) {
+        lastAlertTime = data.time;
+        showAlert(data.message);
+        // Auto-remove alert from Firebase after 15s
         setTimeout(() => {
-          clearInterval(dingInterval);
-          alertBox.style.display = "none";
-          remove(ref(db, 'activeAlert'));
+          remove(ref(db, 'displayAlert'));
         }, 15000);
-
-        alertAlreadyShown = true;
       }
     });
 
-    // Online/offline
+    function playDing() {
+      if (canPlay) {
+        ding.currentTime = 0;
+        ding.play().catch(() => {});
+      }
+    }
+
+    function showAlert(message) {
+      alertBox.textContent = message;
+      alertBox.style.display = "flex";
+      playDing();
+      let count = 0;
+      const interval = setInterval(() => {
+        playDing();
+        if (++count >= 4) clearInterval(interval);
+      }, 4000);
+      setTimeout(() => {
+        alertBox.style.display = "none";
+      }, 15000);
+    }
+
+    function formatTime(ms) {
+      const d = new Date(ms);
+      let h = d.getHours();
+      const m = d.getMinutes().toString().padStart(2, '0');
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return `${h}:${m} ${ampm}`;
+    }
+
     onValue(ref(db, ".info/connected"), (snap) => {
       offlineBanner.style.display = snap.val() ? "none" : "block";
     });
 
-    // Fullscreen trigger
     document.addEventListener("click", () => {
+      if (!canPlay) {
+        canPlay = true;
+        playDing();
+      }
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
+      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
     }, { once: true });
   </script>
 </body>
