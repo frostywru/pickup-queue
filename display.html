@@ -75,19 +75,17 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      text-align: center;
       padding: 10px;
       overflow: hidden;
     }
 
     .ticket span.name {
-      font-size: 2.2rem;
+      font-size: 2.4rem;
       line-height: 1.2;
-      max-height: 4.4rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      text-align: center;
+      display: block;
       width: 100%;
+      white-space: nowrap;
     }
 
     .ticket span.time {
@@ -245,6 +243,7 @@
       sorted.slice(0, 9).forEach(([ticket, info]) => {
         const div = document.createElement("div");
         div.className = "ticket";
+
         const name = document.createElement("span");
         name.className = "name";
         name.textContent = ticket;
@@ -261,6 +260,16 @@
         }
 
         pickupList.appendChild(div);
+
+        // Resize font to fit box
+        setTimeout(() => {
+          let fontSize = 40;
+          name.style.fontSize = fontSize + 'px';
+          while (name.scrollWidth > name.offsetWidth && fontSize > 16) {
+            fontSize -= 1;
+            name.style.fontSize = fontSize + 'px';
+          }
+        }, 0);
       });
     });
 
@@ -298,7 +307,6 @@
           ding.currentTime = 0;
           ding.play().catch(() => {});
         }, 4000);
-
         setTimeout(() => clearInterval(dingInterval), 15000);
       }
     }
