@@ -3,26 +3,22 @@
 <head>
   <title>Pickup Queue Display</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
       font-family: "Arial Black", sans-serif;
       background-color: #000;
       color: #00FF88;
       display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
       height: 100vh;
+      padding: 20px;
       overflow: hidden;
-      position: relative;
-    }
-
-    #bg-logo {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      opacity: 0.05;
-      max-width: 60%;
-      z-index: 0;
-      pointer-events: none;
     }
 
     #clock {
@@ -32,15 +28,35 @@
       font-size: 2rem;
       font-family: "Arial", sans-serif;
       color: #00FF88;
-      z-index: 1;
+    }
+
+    #offline-banner {
+      display: none;
+      background-color: red;
+      color: white;
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .container {
+      display: flex;
+      width: 100%;
+      height: 100%;
     }
 
     .column {
       flex: 1;
-      padding: 30px;
-      box-sizing: border-box;
-      z-index: 1;
+      padding: 10px;
       overflow-y: auto;
+    }
+
+    #pickup-section h1,
+    #laundry-section h1 {
+      text-align: center;
+      margin-bottom: 10px;
+      font-size: 2rem;
     }
 
     #pickup-list {
@@ -50,12 +66,33 @@
     }
 
     .ticket {
-      font-size: 3rem;
+      height: 140px;
+      width: 100%;
       background-color: #111;
       border: 2px solid #00FF88;
-      padding: 20px;
       border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
       text-align: center;
+      padding: 10px;
+      overflow: hidden;
+    }
+
+    .ticket span.name {
+      font-size: 2.2rem;
+      line-height: 1.2;
+      max-height: 4.4rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      width: 100%;
+    }
+
+    .ticket span.time {
+      font-size: 1.2rem;
+      margin-top: 5px;
     }
 
     .highlight {
@@ -68,93 +105,81 @@
       100% { background-color: #111; color: #00FF88; transform: scale(1); }
     }
 
-    .time {
-      font-size: 1.3rem;
-      margin-top: 10px;
+    #laundry-list {
+      font-size: 1.8rem;
+      list-style-type: disc;
+      padding-left: 40px;
+      color: #00FF88;
     }
 
-    .separator {
+    #divider {
       width: 4px;
       background-color: #00FF88;
-      height: 100%;
-      z-index: 1;
     }
 
-    #laundry-list {
-      font-size: 2rem;
-      list-style-type: disc;
-      padding-left: 30px;
-    }
-
-    #offline-banner {
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      background-color: red;
-      color: white;
-      padding: 10px 20px;
-      font-size: 1.2rem;
-      border-radius: 8px;
-      display: none;
-      z-index: 10;
-    }
-
-    #alert-box {
+    #alert-overlay {
       position: fixed;
       top: 0;
       left: 0;
-      height: 100%;
-      width: 100%;
-      background-color: rgba(255, 0, 0, 0.8);
+      right: 0;
+      bottom: 0;
+      background-color: red;
       color: white;
       font-size: 3rem;
-      display: none;
-      align-items: center;
+      font-family: sans-serif;
+      display: flex;
       justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      display: none;
       text-align: center;
-      z-index: 999;
-      padding: 40px;
-      box-sizing: border-box;
-      animation: colorFade 15s ease-in-out;
+      padding: 20px;
+      animation: flashColors 6s infinite;
     }
 
-    @keyframes colorFade {
-      0%   { background-color: red; }
-      33%  { background-color: orange; }
-      66%  { background-color: yellow; }
+    @keyframes flashColors {
+      0% { background-color: red; }
+      33% { background-color: orange; }
+      66% { background-color: yellow; color: black; }
       100% { background-color: red; }
     }
 
-    @media (max-width: 900px) {
-      #pickup-list {
-        grid-template-columns: 1fr;
-      }
+    #logo-bg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0.07;
+      max-width: 600px;
+      z-index: 0;
     }
   </style>
 
+  <!-- Firebase -->
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database.js"></script>
 </head>
 <body>
   <div id="clock"></div>
   <div id="offline-banner">⚠️ Offline: Waiting for connection...</div>
-  <img id="bg-logo" src="logo.png" alt="Background Logo">
+  <img id="logo-bg" src="logo.png" alt="Logo Background">
+  <div id="alert-overlay"></div>
 
-  <div class="column">
-    <h1>For Pick-up:</h1>
-    <div id="pickup-list"></div>
+  <div class="container">
+    <div class="column" id="pickup-section">
+      <h1>For Pick-up</h1>
+      <div id="pickup-list"></div>
+    </div>
+
+    <div id="divider"></div>
+
+    <div class="column" id="laundry-section">
+      <h1>Laundry Details</h1>
+      <ul id="laundry-list"></ul>
+    </div>
   </div>
 
-  <div class="separator"></div>
-
-  <div class="column">
-    <h1>Laundry Details</h1>
-    <ul id="laundry-list"></ul>
-  </div>
-
-  <div id="alert-box"></div>
-
+  <!-- Ding sound -->
   <audio id="ding" src="ding.mp3" preload="auto"></audio>
 
   <script type="module">
@@ -173,110 +198,117 @@
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const ding = document.getElementById("ding");
 
     const pickupList = document.getElementById("pickup-list");
     const laundryList = document.getElementById("laundry-list");
-    const ding = document.getElementById("ding");
-    const alertBox = document.getElementById("alert-box");
+    const alertOverlay = document.getElementById("alert-overlay");
     const offlineBanner = document.getElementById("offline-banner");
 
-    let lastPickups = [];
-    let lastLaundry = [];
-    let lastAlertTime = 0;
-    let canPlay = false;
+    let lastTickets = [];
+    let canPlaySound = false;
+
+    function formatTime(ms) {
+      const d = new Date(ms);
+      const h = d.getHours() % 12 || 12;
+      const m = d.getMinutes().toString().padStart(2, '0');
+      const ampm = d.getHours() >= 12 ? 'PM' : 'AM';
+      return `${h}:${m} ${ampm}`;
+    }
 
     function updateClock() {
       const now = new Date();
-      let h = now.getHours();
-      const m = now.getMinutes().toString().padStart(2, '0');
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12 || 12;
-      document.getElementById("clock").textContent = `${h}:${m} ${ampm}`;
+      const hours = now.getHours() % 12 || 12;
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+      document.getElementById("clock").textContent = `${hours}:${minutes} ${ampm}`;
     }
+
     setInterval(updateClock, 1000);
     updateClock();
 
     onValue(ref(db, 'pickupQueue'), (snapshot) => {
+      offlineBanner.style.display = "none";
       const data = snapshot.val() || {};
       const sorted = Object.entries(data).sort((a, b) => a[1].time - b[1].time);
-      const current = sorted.map(([key]) => key);
-      const newOnes = current.filter(x => !lastPickups.includes(x));
-      pickupList.innerHTML = '';
-      sorted.forEach(([ticket, info]) => {
+      const currentKeys = sorted.map(([ticket]) => ticket);
+      const newOnes = currentKeys.filter(t => !lastTickets.includes(t));
+
+      if (newOnes.length > 0 && canPlaySound) {
+        ding.currentTime = 0;
+        ding.play().catch(() => {});
+      }
+
+      lastTickets = currentKeys;
+      pickupList.innerHTML = "";
+
+      sorted.slice(0, 9).forEach(([ticket, info]) => {
         const div = document.createElement("div");
         div.className = "ticket";
-        if (newOnes.includes(ticket)) div.classList.add("highlight");
-        div.innerHTML = `${ticket}<div class="time">${formatTime(info.time)}</div>`;
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = ticket;
+
+        const time = document.createElement("span");
+        time.className = "time";
+        time.textContent = formatTime(info.time);
+
+        div.appendChild(name);
+        div.appendChild(time);
+
+        if (newOnes.includes(ticket)) {
+          div.classList.add("highlight");
+        }
+
         pickupList.appendChild(div);
       });
-      if (newOnes.length > 0) playDing();
-      lastPickups = current;
     });
 
     onValue(ref(db, 'laundryDetails'), (snapshot) => {
       const data = snapshot.val() || [];
-      laundryList.innerHTML = '';
-      const newOnes = data.filter(x => !lastLaundry.includes(x));
-      data.forEach((item) => {
+      laundryList.innerHTML = "";
+      data.forEach(item => {
         const li = document.createElement("li");
         li.textContent = item;
         laundryList.appendChild(li);
       });
-      if (newOnes.length > 0) playDing();
-      lastLaundry = data;
     });
 
     onValue(ref(db, 'displayAlert'), (snapshot) => {
       const data = snapshot.val();
-      if (data && data.time !== lastAlertTime) {
-        lastAlertTime = data.time;
+      if (data && Date.now() - data.time < 2000) {
         showAlert(data.message);
-        // Auto-remove alert from Firebase after 15s
         setTimeout(() => {
+          alertOverlay.style.display = "none";
           remove(ref(db, 'displayAlert'));
         }, 15000);
       }
     });
 
-    function playDing() {
-      if (canPlay) {
-        ding.currentTime = 0;
-        ding.play().catch(() => {});
-      }
-    }
-
-    function showAlert(message) {
-      alertBox.textContent = message;
-      alertBox.style.display = "flex";
-      playDing();
-      let count = 0;
-      const interval = setInterval(() => {
-        playDing();
-        if (++count >= 4) clearInterval(interval);
-      }, 4000);
-      setTimeout(() => {
-        alertBox.style.display = "none";
-      }, 15000);
-    }
-
-    function formatTime(ms) {
-      const d = new Date(ms);
-      let h = d.getHours();
-      const m = d.getMinutes().toString().padStart(2, '0');
-      const ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12 || 12;
-      return `${h}:${m} ${ampm}`;
-    }
-
     onValue(ref(db, ".info/connected"), (snap) => {
       offlineBanner.style.display = snap.val() ? "none" : "block";
     });
 
-    document.addEventListener("click", () => {
-      if (!canPlay) {
-        canPlay = true;
-        playDing();
+    function showAlert(message) {
+      alertOverlay.textContent = message;
+      alertOverlay.style.display = "flex";
+
+      if (canPlaySound) {
+        let dingInterval = setInterval(() => {
+          ding.currentTime = 0;
+          ding.play().catch(() => {});
+        }, 4000);
+
+        setTimeout(() => clearInterval(dingInterval), 15000);
       }
+    }
+
+    document.addEventListener("click", () => {
+      if (!canPlaySound) {
+        canPlaySound = true;
+        ding.play().catch(() => {});
+      }
+
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
       else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
